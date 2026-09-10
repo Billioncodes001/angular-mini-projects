@@ -1,0 +1,394 @@
+<p class="eyebrow">04 / THE DATA BENCH</p>
+<h2>Clean it. Compare it. Keep control.</h2>
+<p class="description">
+  A small, private workbench for CSV records and JSON values. Preview each edit,
+  keep the original, and take only the changes you choose.
+</p>
+<p class="privacy-note">
+  On-device only. No upload, account or saved browser storage. Leaving this tool
+  or reloading clears the session. Download before leaving.
+</p>
+<p class="hint">
+  On narrow screens, tables scroll sideways. Keyboard: focus the table and use
+  the arrow keys.
+</p>
+<div class="bench-actions">
+  <button
+    type="button"
+    (click)="clear()"
+    [disabled]="reading || (!source && !comparison)"
+  >
+    Clear workspace
+  </button>
+</div>
+@if (error) {
+<p class="error" role="alert">{{ error }}</p>
+}
+<p class="hint" role="status">{{ status }}</p>
+
+<section aria-labelledby="input-title" class="bench-section">
+  <h3 id="input-title">
+    <span class="step-number">01</span> Inspect the input
+  </h3>
+  <div class="row data-row">
+    <div>
+      <label for="data-format">Format</label
+      ><select
+        id="data-format"
+        [(ngModel)]="format"
+        (ngModelChange)="changeFormat()"
+        [disabled]="!!session || reading"
+      >
+        <option value="csv">CSV (comma-separated)</option>
+        <option value="json">JSON</option>
+      </select>
+    </div>
+    <div>
+      <label for="data-file">Read a UTF-8 file locally</label
+      ><input
+        id="data-file"
+        type="file"
+        [accept]="format === 'csv' ? '.csv,text/csv' : '.json,application/json'"
+        (change)="readFile($event, 'source')"
+        [disabled]="!!session || reading"
+      />
+    </div>
+  </div>
+  <label for="data-source">Original {{ format.toUpperCase() }}</label>
+  <textarea
+    id="data-source"
+    [value]="source"
+    (input)="updateDraft($event, 'source')"
+    (paste)="checkPaste($event)"
+    [readOnly]="!!session || reading"
+    rows="6"
+    spellcheck="false"
+    autocapitalize="off"
+    aria-describedby="input-limits"
+    placeholder="Paste your input, or load the synthetic example."
+  ></textarea>
+  <p id="input-limits" class="hint">
+    Maximum 256 KiB per input. CSV: 2,000 records, 100 columns; every record
+    must have the same width, including blank records. JSON: 32 nesting levels,
+    no duplicate keys. Both: 20,000 cells / values.
+  </p>
+  <div class="bench-actions">
+    @if (!session) {
+    <button type="button" (click)="sample()" [disabled]="reading">
+      Load synthetic example
+    </button>
+    <button
+      type="button"
+      class="primary"
+      (click)="previewSource()"
+      [disabled]="reading || !source"
+    >
+      Validate &amp; open
+    </button>
+    } @else {
+    <button type="button" (click)="editSource()">Edit original source</button> }
+  </div>
+  @if (parsed && parsed.issues.length) {
+  <div class="error" role="alert">
+    <strong>Fix the input first. Nothing imported.</strong>
+    <ul>
+      @for (issue of parsed.issues; track $index) {
+      <li>
+        @if (issue.record) { Record {{ issue.record }}, }line {{ issue.line }},
+        column {{ issue.column }}: {{ issue.message }}
+      </li>
+      }
+    </ul>
+    <p>
+      Showing at most 100 width errors plus the first syntax error. The preview
+      below shows only complete records before a syntax error.
+    </p>
+  </div>
+  } @if (format === 'csv' && rows.length) {
+  <div
+    class="table-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="CSV record preview"
+  >
+    <table>
+      <caption>
+        Record preview: first {{ rows.length > 8 ? 8 : rows.length }} records,
+        up to 6 columns. Quoted strings make whitespace visible; long values are
+        shortened here only.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Record</th>
+          @for (cell of rows[0].slice(0, 6); track $index) {
+          <th scope="col">Column {{ $index + 1 }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows.slice(0, 8); track $index; let record = $index) {
+        <tr>
+          <th scope="row">{{ record + 1 }}</th>
+          @for (cell of row.slice(0, 6); track $index) {
+          <td>{{ short(cell) }}</td>
+          }
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+</section>
+
+@if (session) {
+<section aria-labelledby="cleanup-title" class="bench-section">
+  <h3 id="cleanup-title">
+    <span class="step-number">02</span> Make a deliberate change
+  </h3>
+  <p class="hint">
+    {{ documentSummary }}. CSV values stay strings; JSON keys, types and array
+    order never change. Transforms are reversible in this session, not
+    mathematically reversible after export.
+  </p>
+  @if (format === 'csv') {
+  <label class="check-label"
+    ><input
+      type="checkbox"
+      [(ngModel)]="header"
+      (ngModelChange)="settingsChanged()"
+    />
+    Protect the first record as a header</label
+  >
+  <label for="data-column">Columns to change</label
+  ><select
+    id="data-column"
+    [(ngModel)]="column"
+    (ngModelChange)="settingsChanged()"
+  >
+    <option [ngValue]="null">All columns</option>
+    @for (cell of columns; track $index) {
+    <option [ngValue]="$index">
+      Column {{ $index + 1 }}{{ header ? ': ' + cell.slice(0, 50) : '' }}
+    </option>
+    }
+  </select>
+  }
+  <label for="data-operation">Transformation</label
+  ><select
+    id="data-operation"
+    [(ngModel)]="operation"
+    (ngModelChange)="settingsChanged()"
+  >
+    @for (option of availableOperations; track option.value) {
+    <option [value]="option.value">{{ option.label }}</option>
+    }
+  </select>
+  <p class="hint">{{ operationDetail }}</p>
+  <div class="bench-actions">
+    <button type="button" (click)="previewTransformation()">
+      Preview transformation</button
+    ><button
+      type="button"
+      (click)="undo()"
+      [disabled]="!session.history.length"
+    >
+      Undo last change</button
+    ><button
+      type="button"
+      (click)="reset()"
+      [disabled]="!session.history.length && !session.pending"
+    >
+      Reset changes
+    </button>
+  </div>
+  <p class="hint">
+    {{ session.history.length }} / 20 applied steps. Undo and reset retain your
+    original input.
+  </p>
+  @if (displayDiff; as diff) {
+  <div class="change-summary" aria-live="polite">
+    <strong
+      >{{ session.pending ? 'Proposed step' : 'Original → current' }}</strong
+    ><span
+      >{{ diff.changed }} changed · {{ diff.added }} added · {{ diff.removed }}
+      removed</span
+    >
+  </div>
+  @if (diff.changes.length) {
+  <div
+    class="table-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="Cleanup changes"
+  >
+    <table>
+      <caption>
+        Before / after values (first 100 changes). JSON uses JSON Pointer paths;
+        strings are visibly quoted. Download the review for every change and
+        full values.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Location</th>
+          <th scope="col">Before</th>
+          <th scope="col">After</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (change of diff.changes.slice(0, 100); track $index) {
+        <tr>
+          <th scope="row">{{ change.path }}</th>
+          <td>{{ short(change.before) }}</td>
+          <td>{{ short(change.after) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <button type="button" (click)="downloadChangeReview()">
+    Download change review
+  </button>
+  } } @if (session.pending) {
+  <button
+    class="primary"
+    type="button"
+    (click)="apply()"
+    [disabled]="!session.pending.diff.changes.length || session.history.length >= 20"
+  >
+    Apply reviewed transformation
+  </button>
+  } <label for="data-output">Current result (applied changes only)</label
+  ><textarea
+    id="data-output"
+    [value]="output"
+    readonly
+    rows="6"
+    spellcheck="false"
+  ></textarea>
+  <p class="hint">
+    CSV record order, separators, header values (when protected) and empty
+    fields are retained. Quoting may be normalized. JSON whitespace / escapes
+    are normalized, but number tokens and key order are preserved. No format
+    conversion.
+  </p>
+  @if (risks) {
+  <div class="formula-warning">
+    <strong>{{ risks }} formula-like CSV cells, including headers.</strong>
+    <p>
+      Spreadsheet apps can execute formulas in CSV. Prefix all affected cells
+      using the explicit transformation, or acknowledge the risk to export
+      unchanged. Apostrophe handling varies by spreadsheet; import untrusted
+      fields as text.
+    </p>
+    <label class="check-label"
+      ><input type="checkbox" [(ngModel)]="allowFormulas" /> I understand the
+      formula risk and want unchanged CSV values</label
+    >
+  </div>
+  }
+  <button
+    class="primary"
+    type="button"
+    (click)="download()"
+    [disabled]="risks > 0 && !allowFormulas"
+  >
+    Download {{ format.toUpperCase() }} result
+  </button>
+</section>
+
+<section aria-labelledby="diff-title" class="bench-section">
+  <h3 id="diff-title">
+    <span class="step-number">03</span> Compare another version
+  </h3>
+  <p class="hint">
+    Compare the current applied result on the left with a second {{
+    format.toUpperCase() }} input on the right. Read-only comparison, not a
+    merge. @if (format === 'csv') { Records / columns match by position,
+    including headers; inserted rows can create many differences. } @else {
+    Object key order is ignored; arrays match by index. Number spellings compare
+    exactly (1 and 1.0 differ). Added / removed subtrees count once. }
+  </p>
+  <label for="compare-file">Read comparison file locally</label
+  ><input
+    id="compare-file"
+    type="file"
+    [accept]="format === 'csv' ? '.csv,text/csv' : '.json,application/json'"
+    (change)="readFile($event, 'comparison')"
+    [disabled]="reading"
+  />
+  <label for="comparison-source">Comparison {{ format.toUpperCase() }}</label
+  ><textarea
+    id="comparison-source"
+    [value]="comparison"
+    (input)="updateDraft($event, 'comparison')"
+    (paste)="checkPaste($event)"
+    [readOnly]="reading"
+    rows="5"
+    spellcheck="false"
+    autocapitalize="off"
+  ></textarea>
+  <button type="button" (click)="compare()" [disabled]="reading || !comparison">
+    Compare versions
+  </button>
+  @if (compared && compared.issues.length) {
+  <div class="error" role="alert">
+    <strong>Comparison input needs correction.</strong>
+    <ul>
+      @for (issue of compared.issues; track $index) {
+      <li>
+        @if (issue.record) { Record {{ issue.record }}, }line {{ issue.line }},
+        column {{ issue.column }}: {{ issue.message }}
+      </li>
+      }
+    </ul>
+  </div>
+  } @if (externalDiff; as diff) {
+  <div class="change-summary" aria-live="polite">
+    <strong>Current → comparison</strong
+    ><span
+      >{{ diff.changed }} changed · {{ diff.added }} added · {{ diff.removed }}
+      removed</span
+    >
+  </div>
+  @if (!diff.changes.length) {
+  <p>
+    No structural differences under the rules above. Serialization, quoting or
+    whitespace may still differ.
+  </p>
+  } @if (diff.changes.length) {
+  <div
+    class="table-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="Version differences"
+  >
+    <table>
+      <caption>
+        First 100 differences. Download the report for every difference and full
+        values.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Location / kind</th>
+          <th scope="col">Current</th>
+          <th scope="col">Comparison</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (change of diff.changes.slice(0, 100); track $index) {
+        <tr>
+          <th scope="row">{{ change.path }}<small>{{ change.kind }}</small></th>
+          <td>{{ short(change.before) }}</td>
+          <td>{{ short(change.after) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+  <button type="button" (click)="downloadDiff()">
+    Download full diff report
+  </button>
+  }
+</section>
+}

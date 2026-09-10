@@ -12,7 +12,7 @@ const mime = {
 const server = createServer((req, res) => {
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'self'",
+    "default-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'",
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
   try {
@@ -30,7 +30,7 @@ const server = createServer((req, res) => {
       res.end();
       return;
     }
-    if (["/", "/calculator", "/cipher", "/words"].includes(pathname))
+    if (["/", "/calculator", "/cipher", "/words", "/data"].includes(pathname))
       path = resolve(root, "index.html");
     if (!statSync(path).isFile()) throw new Error("Not found");
     res.setHeader(
@@ -47,6 +47,7 @@ const server = createServer((req, res) => {
     res.end("Not found");
   }
 });
-server.listen(5104, "127.0.0.1", () =>
-  console.log("Smallwork preview: http://127.0.0.1:5104"),
+const port = Number(process.env.PORT || 5310);
+server.listen(port, "127.0.0.1", () =>
+  console.log(`Smallwork preview: http://127.0.0.1:${port}`),
 );

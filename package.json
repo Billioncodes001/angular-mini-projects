@@ -6,9 +6,10 @@
     "node": ">=22.16.0 <23 || >=24.0.0"
   },
   "scripts": {
-    "dev": "ng serve --host 127.0.0.1 --port 5104",
+    "dev": "ng serve --host 127.0.0.1 --port 5309",
     "build": "ng build",
     "test": "tsx --test tests/*.test.ts",
+    "test:browser": "playwright test",
     "preview": "node tools/preview.mjs"
   },
   "dependencies": {
@@ -25,9 +26,11 @@
     "@angular/build": "~21.2.0",
     "@angular/cli": "~21.2.0",
     "@angular/compiler-cli": "~21.2.0",
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.18.0",
-    "typescript": "~5.9.3",
-    "tsx": "^4.20.5"
+    "tsx": "^4.20.5",
+    "typescript": "~5.9.3"
   },
   "name": "angular-mini-projects"
 }

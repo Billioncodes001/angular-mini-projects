@@ -34,6 +34,8 @@ import {
               ><span>02</span> Caesar cipher <b>↔</b></a
             ><a routerLink="/words" routerLinkActive="active"
               ><span>03</span> Word studio <b>Aa</b></a
+            ><a routerLink="/data" routerLinkActive="active"
+              ><span>04</span> Data bench <b>{{ '{ }' }}</b></a
             >
             <p>No accounts.<br />No tracking.<br />Just useful tools.</p>
           </nav>
@@ -64,6 +66,10 @@ bootstrapApplication(App, {
       {
         path: "words",
         loadComponent: () => import("./tools/words").then((m) => m.Words),
+      },
+      {
+        path: "data",
+        loadComponent: () => import("./tools/data").then((m) => m.DataBench),
       },
       { path: "", redirectTo: "calculator", pathMatch: "full" },
       { path: "**", redirectTo: "calculator" },
