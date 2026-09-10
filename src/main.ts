@@ -20,7 +20,7 @@ import {
       <main>
         <section class="intro">
           <p class="eyebrow">SMALL TOOLS. SURPRISINGLY USEFUL.</p>
-          <h1>Less friction.<br /><em>More flow.</em></h1>
+          <h1>Less friction. <em>More flow.</em></h1>
           <p>
             A thoughtful little toolkit for numbers, words and curious minds.
             Everything happens on your device.
